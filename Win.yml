@@ -1,0 +1,62 @@
+---
+- hosts: win
+  gather_facts: yes
+  vars:
+   - iissite: mysite.local
+   - iisport: 80
+   - hostname: mysite.local
+   - pool: mysite.local
+   - physicalpath: C:\inetpub\wwwroot
+  tasks:
+  # - name: Install all critical and security updates
+   #  win_updates:
+   #   category_names:
+   #   - CriticalUpdates
+   #   - SecurityUpdates
+   #   state: installed
+   #  register: updatedetails
+  # - name: update details
+    # debug:
+     # msg: "{{ updatedetails }}" 
+   - name: Install IIS (Web-Server and Web-Common-Http)
+     ansible.windows.win_feature:
+      name: web-server
+      state: present 
+      include_sub_features: yes
+      include_management_tools: yes
+     register: win_feature
+   - name: Creates an application pool, sets attributes and starts it
+     win_iis_webapppool:
+      name: "{{ pool }}"
+      state: started
+      attributes:
+        managedRuntimeVersion: v4.0
+        autoStart: yes
+   - name: Modify hosts file
+     community.windows.win_lineinfile:
+      path: C:\Windows\System32\drivers\etc\hosts
+      line: 127.0.0.1 mysite.local
+      create: yes
+      backup: yes     
+   - name: IIS site
+     win_iis_website:
+      name: "{{ iissite }}"
+      state: started
+      port: "{{ iisport }}"
+      hostname: "{{ hostname }}"
+      application_pool: "{{ pool }}"
+      physical_path: "{{ physicalpath }}"
+     register: website
+   - name: create temp dir 
+     win_shell: mkdir C:\temp
+     args: 
+       executable: cmd.exe    
+   - name: Download notepad++
+     win_get_url:
+      url: https://github-production-release-asset-2e65be.s3.amazonaws.com/33014811/b8b81d80-b969-11ea-8df7-3736d6113115?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIWNJYAX4CSVEH53A%2F20210106%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20210106T163820Z&X-Amz-Expires=300&X-Amz-Signature=01c3a278521266f7ed74546c92058503cc928da046aa7a03545009dab59ea8dc&X-Amz-SignedHeaders=host&actor_id=34448658&key_id=0&repo_id=33014811&response-content-disposition=attachment%3B%20filename%3Dnpp.7.8.8.Installer.exe&response-content-type=application%2Foctet-stream
+      dest: C:\temp\notepad.exe
+   - name: Install  notepad++
+     win_package:
+       path: C:\temp\notepad.exe
+       state: present
+...
